@@ -1,0 +1,261 @@
+<html><head><base href="https://www.thegameoflife.com"><title>The Game of Life - Digital Evolution Simulator</title>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    font-family: 'Roboto', sans-serif;
+    background: #000;
+    color: #0f0;
+    height: 100%;
+    overflow: hidden;
+  }
+  .container {
+    display: flex;
+    height: 100vh;
+  }
+  .sidebar {
+    width: 300px;
+    background: rgba(0, 20, 0, 0.8);
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .main-content {
+    flex-grow: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  #life-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  h1, h2, h3 {
+    color: #0f0;
+    text-shadow: 0 0 5px #0f0;
+  }
+  .control-panel {
+    margin-top: 20px;
+  }
+  .control-btn {
+    background: rgba(0, 255, 0, 0.2);
+    color: #0f0;
+    border: 1px solid #0f0;
+    padding: 10px 20px;
+    margin: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .control-btn:hover {
+    background: rgba(0, 255, 0, 0.4);
+  }
+  #generation-counter, #population-counter {
+    font-size: 1.2em;
+    margin: 10px 0;
+  }
+  .slider-container {
+    margin: 20px 0;
+  }
+  .slider {
+    width: 100%;
+    -webkit-appearance: none;
+    background: #0f0;
+    outline: none;
+    opacity: 0.7;
+    transition: opacity .2s;
+  }
+  .slider:hover {
+    opacity: 1;
+  }
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 25px;
+    height: 25px;
+    background: #000;
+    cursor: pointer;
+    border: 2px solid #0f0;
+  }
+  .slider::-moz-range-thumb {
+    width: 25px;
+    height: 25px;
+    background: #000;
+    cursor: pointer;
+    border: 2px solid #0f0;
+  }
+</style>
+<script type="text/javascript" nonce="3ef5692b142a4420908a6375302" src="//local.adguard.org?ts=1720691028772&amp;type=content-script&amp;dmn=party.websim.ai&amp;url=https%3A%2F%2Fparty.websim.ai%2Fapi%2Fv1%2Fsites%2F1QaWN7tSm9kEq4rIw%2Fhtml%3Fraw%3Dtrue&amp;app=com.google.Chrome&amp;css=3&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script>
+<script type="text/javascript" nonce="3ef5692b142a4420908a6375302" src="//local.adguard.org?ts=1720691028772&amp;name=AdGuard%20Assistant&amp;name=AdGuard%20Extra&amp;type=user-script"></script></head>
+<body>
+<div class="container">
+  <div class="sidebar">
+    <h1>The Game of Life</h1>
+    <h2>Digital Evolution Simulator</h2>
+    <div id="generation-counter">Generation: 0</div>
+    <div id="population-counter">Population: 0</div>
+    <div class="control-panel">
+      <button class="control-btn" onclick="startSimulation()">Start</button>
+      <button class="control-btn" onclick="pauseSimulation()">Pause</button>
+      <button class="control-btn" onclick="resetSimulation()">Reset</button>
+      <button class="control-btn" onclick="randomizeGrid()">Randomize</button>
+    </div>
+    <div class="slider-container">
+      <label for="speed-slider">Simulation Speed:</label>
+      <input type="range" min="1" max="100" value="50" class="slider" id="speed-slider">
+    </div>
+    <div class="slider-container">
+      <label for="size-slider">Grid Size:</label>
+      <input type="range" min="10" max="100" value="50" class="slider" id="size-slider">
+    </div>
+    <h3>Rules:</h3>
+    <ul>
+      <li>Any live cell with fewer than two live neighbours dies, as if by underpopulation.</li>
+      <li>Any live cell with two or three live neighbours lives on to the next generation.</li>
+      <li>Any live cell with more than three live neighbours dies, as if by overpopulation.</li>
+      <li>Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.</li>
+    </ul>
+  </div>
+  <div class="main-content">
+    <canvas id="life-grid"></canvas>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('life-grid');
+const ctx = canvas.getContext('2d');
+let grid = [];
+let gridSize = 50;
+let cellSize;
+let generation = 0;
+let population = 0;
+let intervalId;
+
+function initializeGrid() {
+  grid = [];
+  for (let i = 0; i < gridSize; i++) {
+    grid[i] = [];
+    for (let j = 0; j < gridSize; j++) {
+      grid[i][j] = 0;
+    }
+  }
+}
+
+function randomizeGrid() {
+  for (let i = 0; i < gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      grid[i][j] = Math.random() > 0.7 ? 1 : 0;
+    }
+  }
+  updateCounters();
+  drawGrid();
+}
+
+function drawGrid() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      if (grid[i][j] === 1) {
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(i * cellSize, j * cellSize, cellSize - 1, cellSize - 1);
+      }
+    }
+  }
+}
+
+function updateGrid() {
+  const newGrid = JSON.parse(JSON.stringify(grid));
+  population = 0;
+  for (let i = 0; i < gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      const neighbors = countNeighbors(i, j);
+      if (grid[i][j] === 1) {
+        if (neighbors < 2 || neighbors > 3) {
+          newGrid[i][j] = 0;
+        } else {
+          newGrid[i][j] = 1;
+          population++;
+        }
+      } else if (neighbors === 3) {
+        newGrid[i][j] = 1;
+        population++;
+      }
+    }
+  }
+  grid = newGrid;
+  generation++;
+  updateCounters();
+}
+
+function countNeighbors(x, y) {
+  let count = 0;
+  for (let i = -1; i <= 1; i++) {
+    for (let j = -1; j <= 1; j++) {
+      if (i === 0 && j === 0) continue;
+      const newX = (x + i + gridSize) % gridSize;
+      const newY = (y + j + gridSize) % gridSize;
+      count += grid[newX][newY];
+    }
+  }
+  return count;
+}
+
+function updateCounters() {
+  document.getElementById('generation-counter').textContent = `Generation: ${generation}`;
+  document.getElementById('population-counter').textContent = `Population: ${population}`;
+}
+
+function startSimulation() {
+  if (!intervalId) {
+    const speed = 101 - document.getElementById('speed-slider').value;
+    intervalId = setInterval(() => {
+      updateGrid();
+      drawGrid();
+    }, speed);
+  }
+}
+
+function pauseSimulation() {
+  if (intervalId) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+}
+
+function resetSimulation() {
+  pauseSimulation();
+  initializeGrid();
+  generation = 0;
+  population = 0;
+  updateCounters();
+  drawGrid();
+}
+
+function resizeCanvas() {
+  const mainContent = document.querySelector('.main-content');
+  canvas.width = mainContent.clientWidth;
+  canvas.height = mainContent.clientHeight;
+  cellSize = Math.min(canvas.width, canvas.height) / gridSize;
+  drawGrid();
+}
+
+document.getElementById('speed-slider').addEventListener('input', function() {
+  if (intervalId) {
+    pauseSimulation();
+    startSimulation();
+  }
+});
+
+document.getElementById('size-slider').addEventListener('input', function() {
+  gridSize = parseInt(this.value);
+  resetSimulation();
+  resizeCanvas();
+});
+
+window.addEventListener('resize', resizeCanvas);
+
+initializeGrid();
+resizeCanvas();
+randomizeGrid();
+</script>
+</body></html>
